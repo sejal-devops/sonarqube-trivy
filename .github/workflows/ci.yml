@@ -1,0 +1,51 @@
+name: CI Pipeline with SonarQube and Trivy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run SonarQube Scan
+      uses: sonarsource/sonarcloud-github-action@v1
+      with:
+        organization: 'your-organization'
+        projectKey: 'your-project-key'
+        token: ${{ secrets.SONAR_TOKEN }}
+
+    - name: Build Docker image
+      run: |
+        docker build -t my-app .
+
+    - name: Scan Docker image with Trivy
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd):/root/.local/share/docker-trivy aquasecurity/trivy --scanners os,library --no-progress --format json --output trivy-report.json my-app
+
+    - name: Upload Trivy report as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: trivy-report
+        path: trivy-report.json
+
+    - name: Upload SonarQube report as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: sonar-report
+        path: ./sonar-report.json
